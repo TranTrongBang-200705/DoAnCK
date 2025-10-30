@@ -88,6 +88,24 @@ namespace DoAnCuoiKy
             frmDoiMk.WindowState = FormWindowState.Maximized;
             frmDoiMk.Show();
         }
+
+        private void label7_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void label3_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void toolStripMenuItem1_Click(object sender, EventArgs e)
+        {
+            frmTrangChuGiangVien f = new frmTrangChuGiangVien(_nguoiDunghientai, _context);
+            f.MdiParent = this;
+            f.Dock = DockStyle.Fill;
+            f.Show();
+        }
     }
 
         // 🔹 Hàm hiển thị danh sách cơ sở (nếu có dgvPhongHoc)

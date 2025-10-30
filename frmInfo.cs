@@ -34,9 +34,9 @@ namespace DoAnCuoiKy
         {
             return vaiTro switch
             {
-                0 => "Học viên",
-                1 => "Giảng viên",
-                2 => "Quản trị viên",
+                0 => "Học Viên",
+                1 => "Giảng Viên",
+                2 => "Quản Trị",
                 _ => "Không xác định"
             };
         }

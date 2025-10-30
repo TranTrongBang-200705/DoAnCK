@@ -295,5 +295,10 @@ namespace DoAnCuoiKy
         {
             // Code xử lý nếu cần
         }
+
+        private void btnThoat_Click_1(object sender, EventArgs e)
+        {
+           Close();
+        }
     }
 }

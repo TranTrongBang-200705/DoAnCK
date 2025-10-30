@@ -98,21 +98,16 @@ namespace DoAnCuoiKy
             {
                 _tienDoTheoBaiHoc.Clear();
 
-                // 🔥 QUAN TRỌNG: Tạo context MỚI và force refresh
+                // 🔥 QUAN TRỌNG: Dùng context MỚI để load dữ liệu mới nhất
                 using (var freshContext = new Model1())
                 {
-                    // 🔥 QUAN TRỌNG: Tắt auto-detect changes để load dữ liệu mới
-                    freshContext.Configuration.AutoDetectChangesEnabled = false;
-
                     var maBaiHocs = _danhSachBaiHoc.Select(bh => bh.MaBaiHoc).ToList();
-
-                    // 🔥 QUAN TRỌNG: Load với AsNoTracking để tránh cache
                     var tienDoMoi = await freshContext.TienDoHocTaps
-                        .AsNoTracking() // QUAN TRỌNG: Không cache dữ liệu
                         .Where(td => td.MaHocVien.ToString() == _maHocVien &&
-                                   maBaiHocs.Contains(td.MaBaiHoc))
+                                     maBaiHocs.Contains(td.MaBaiHoc))
                         .ToListAsync();
 
+                    // Cập nhật cả _tienDoHocVien và _tienDoTheoBaiHoc
                     _tienDoHocVien = tienDoMoi;
 
                     foreach (var baiHoc in _danhSachBaiHoc)
@@ -121,6 +116,7 @@ namespace DoAnCuoiKy
 
                         if (tienDo != null)
                         {
+                            // Lấy tiến độ từ CSDL
                             _tienDoTheoBaiHoc[baiHoc.MaBaiHoc] = (
                                 (double)tienDo.TiLeHoanThanh,
                                 tienDo.ThoiGianXem ?? 0
@@ -129,8 +125,9 @@ namespace DoAnCuoiKy
                         }
                         else
                         {
-                            // 🔥 QUAN TRỌNG: Khởi tạo mới với context chính
-                            await KhoiTaoTienDoMoi(baiHoc.MaBaiHoc);
+                            // Chưa có tiến độ, khởi tạo = 0
+                            _tienDoTheoBaiHoc[baiHoc.MaBaiHoc] = (0, 0);
+                            Console.WriteLine($"📝 Khởi tạo mới - Bài {baiHoc.TieuDeBaiHoc}: 0%");
                         }
                     }
                 }
@@ -138,37 +135,6 @@ namespace DoAnCuoiKy
             catch (Exception ex)
             {
                 Console.WriteLine($"Lỗi khởi tạo tiến độ: {ex.Message}");
-            }
-        }
-
-        // 🔥 HÀM MỚI: Khởi tạo tiến độ mới
-        private async Task KhoiTaoTienDoMoi(Guid maBaiHoc)
-        {
-            try
-            {
-                // Tạo bản ghi tiến độ mới trong CSDL
-                var tienDoMoi = new TienDoHocTap
-                {
-                    MaTienDo = Guid.NewGuid(),
-                    MaHocVien = Guid.Parse(_maHocVien),
-                    MaBaiHoc = maBaiHoc,
-                    DaXem = false,
-                    ThoiGianXem = 0,
-                    TiLeHoanThanh = 0,
-                    NgayXem = null
-                };
-
-                _context.TienDoHocTaps.Add(tienDoMoi);
-                await _context.SaveChangesAsync();
-
-                // Cập nhật dictionary
-                _tienDoTheoBaiHoc[maBaiHoc] = (0, 0);
-
-                Console.WriteLine($"✅ Đã tạo mới tiến độ cho bài học: {maBaiHoc}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"❌ Lỗi tạo tiến độ mới: {ex.Message}");
             }
         }
 
@@ -235,33 +201,6 @@ namespace DoAnCuoiKy
 
         private void HienThiBaiHoc(BaiHoc baiHoc)
         {
-            Console.WriteLine($"🎯 Hiển thị bài học: {baiHoc.TieuDeBaiHoc}");
-
-            // Dừng timer hiện tại
-            _progressTimer.Stop();
-            _isVideoPlaying = false;
-            Console.WriteLine("⏹️ Đã STOP timer");
-
-            // Hiển thị tiêu đề
-            lblTieuDeBaiHoc.Text = baiHoc.TieuDeBaiHoc;
-
-            // Hiển thị tiến độ
-            if (_tienDoTheoBaiHoc.ContainsKey(baiHoc.MaBaiHoc))
-            {
-                var (progress, seconds) = _tienDoTheoBaiHoc[baiHoc.MaBaiHoc];
-                progressBaiHoc.Value = (int)progress;
-                lblTienDoBaiHoc.Text = $"{progress:0}% hoàn thành";
-                Console.WriteLine($"📊 Tiến độ hiện tại: {progress}% ({seconds}s)");
-            }
-            else
-            {
-                progressBaiHoc.Value = 0;
-                lblTienDoBaiHoc.Text = "0% hoàn thành";
-                Console.WriteLine("📊 Tiến độ hiện tại: 0% (chưa có dữ liệu)");
-            }
-
-            // Hiển thị video (nếu có)
-            XuLyHienThiVideo(baiHoc);
             // Dừng timer hiện tại
             _progressTimer.Stop();
             _isVideoPlaying = false;
@@ -346,48 +285,26 @@ namespace DoAnCuoiKy
 
         private async Task CapNhatTienDoVideo()
         {
-            Console.WriteLine($"🔴 TIMER CHẠY - Bài hiện tại: {_baiHocHienTai?.TieuDeBaiHoc}, IsPlaying: {_isVideoPlaying}");
-
-            if (_baiHocHienTai == null)
+            if (_baiHocHienTai == null || !_isVideoPlaying)
             {
-                Console.WriteLine("❌ _baiHocHienTai là NULL");
-                return;
-            }
-
-            if (!_isVideoPlaying)
-            {
-                Console.WriteLine("❌ _isVideoPlaying là FALSE");
                 return;
             }
 
             try
             {
-                // 🔥 KIỂM TRA XEM BÀI HỌC CÓ TRONG DICTIONARY KHÔNG
-                if (!_tienDoTheoBaiHoc.ContainsKey(_baiHocHienTai.MaBaiHoc))
-                {
-                    Console.WriteLine($"⚠️ Bài học chưa có trong dictionary, đang khởi tạo...");
-                    await KhoiTaoTienDoMoi(_baiHocHienTai.MaBaiHoc);
-
-                    // Kiểm tra lại sau khi khởi tạo
-                    if (!_tienDoTheoBaiHoc.ContainsKey(_baiHocHienTai.MaBaiHoc))
-                    {
-                        Console.WriteLine($"❌ Vẫn không có bài học trong dictionary sau khi khởi tạo");
-                        return;
-                    }
-                }
-
+                // Lấy tiến độ hiện tại của bài học này
                 var (currentProgress, currentSeconds) = _tienDoTheoBaiHoc[_baiHocHienTai.MaBaiHoc];
 
-                Console.WriteLine($"📊 Trước khi cập nhật - Thời gian: {currentSeconds}s, Tiến độ: {currentProgress}%");
-
-                // TĂNG THỜI GIAN
+                // ⚡ TĂNG: Thêm 10 giây mỗi lần timer chạy (thay vì 5 giây)
                 int newSeconds = currentSeconds + 10;
-                double progressIncrement = TinhPhanTramTangThem(10, (int)_baiHocHienTai.ThoiLuong);
+
+                // ⚡ TĂNG: Tính tiến độ tăng thêm nhiều hơn
+                double progressIncrement = TinhPhanTramTangThem(10, (int)_baiHocHienTai.ThoiLuong); // Tăng từ 5 lên 10 giây
                 double newProgress = Math.Min(currentProgress + progressIncrement, 100);
 
-                Console.WriteLine($"⏱️ Sau khi cập nhật - Thời gian: {newSeconds}s, Tiến độ: {newProgress}%");
+                Console.WriteLine($"⏱️ Thời gian: {newSeconds}s | Tiến độ cũ: {currentProgress}% | Tăng thêm: {progressIncrement}% | Tiến độ mới: {newProgress}%");
 
-                // Cập nhật dictionary
+                // 🔥 CẬP NHẬT TIẾN ĐỘ CHO BÀI HỌC NÀY
                 _tienDoTheoBaiHoc[_baiHocHienTai.MaBaiHoc] = (newProgress, newSeconds);
 
                 // Cập nhật UI
@@ -555,12 +472,12 @@ namespace DoAnCuoiKy
 
         private void btnTruoc_Click(object sender, EventArgs e)
         {
-            
+
         }
 
         private void btnSau_Click(object sender, EventArgs e)
         {
-           
+
         }
 
         private void btnPlay_Click(object sender, EventArgs e)

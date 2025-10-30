@@ -191,8 +191,8 @@ namespace DoAnCuoiKy
                 }
                 else
                 {
-                    lblTrangThai.Text = "Chưa bắt đầu";
-                    lblTrangThai.ForeColor = Color.Gray;
+                    lblTrangThai.Text = $"Đang học ({phanTram}%)";
+                    lblTrangThai.ForeColor = Color.Blue;
                 }
 
                 Console.WriteLine($"Hiển thị: {dangKy.KhoaHoc?.TieuDe} - {phanTram}% - {lblTrangThai.Text}");
